@@ -1,0 +1,9 @@
+# Dossiers à ignorer
+
+## Snakemake
+.snakemake/
+
+## Dossiers de sortie
+**/results/
+**/data/
+**/logs/
