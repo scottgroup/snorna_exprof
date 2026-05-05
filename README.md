@@ -36,7 +36,7 @@ FASTQ files
 
 ## Requirements
 
-- [Snakemake](https://snakemake.readthedocs.io) == 7.26.0
+- [Snakemake](https://snakemake.readthedocs.io): 7.26.0
 - [Conda](https://docs.conda.io) / [Mamba](https://mamba.readthedocs.io)
 - SLURM cluster environment
 
