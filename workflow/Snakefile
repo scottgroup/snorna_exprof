@@ -6,219 +6,174 @@ Author(s): Alphonse Birane Thiaw
 Scot-Lab Universite de Sherbrooke
 """
 
+
+import os
 from scripts.manifest_utils import ManifestHolderPE, ManifestHolderSR
 
-#===============
-# Setting config Parameters
-#===============
+# ===============
+# Config
+# ===============
+
 configfile: "config/resources.yaml"
 
-#---------------
+GTF        = config["gtf"]
+GTF_PREFIX = os.path.splitext(GTF)[0]
+FASTA      = config["fasta"]
+FASTQ_DIR  = config["fastq_dir"]
+OUTPUT_DIR = config["output_dir"]
+MANIFEST   = config["manifest"]
 
-#==============
-# Manifest Loading
-#==============
-manifest = ManifestHolderPE(config["path"]["manifest"])
-SAMPLES = manifest.get_samples()
+
+# ===============
+# Manifest
+# ===============
+manifest = ManifestHolderPE(MANIFEST)
+SAMPLES  = manifest.get_samples()
 
 
+# ===============
+# Règles
+# ===============
 rule run_all:
     input:
-    	expand("../results/fastqc/multiqc/qc_multiqc_report.html"),
-	#expand("../results/star/star_report/star_multiqc_report.html"),
-    	#expand("../results/coco_merge/samples_merged_coco_tpm.tsv")
+        f"{OUTPUT_DIR}/report/multiqc/qc_multiqc_report.html",
+        f"{OUTPUT_DIR}/report/star/star_multiqc_report.html",
+        f"{OUTPUT_DIR}/coco_merge/samples_merged_coco_tpm.tsv"
 
+rule downloads_coco:
+    output:
+        check = "../tools/coco_downloads.done",
+	coco_folder = directory("../tools/coco")
+    params:
+        coco_link = config["path"]["coco_link"]
+    conda:
+        "envs/git.yaml"
+    shell:
+        """
+        git clone {params.coco_link} {output.coco_folder}
+	touch {output.check}
+        """
 
-rule fastqc_init:
-    """Fastq control quality before trimming reads"""
+rule fastp:
     input:
-    	R1 = lambda wc: manifest.get_fastq_path(True, wc.sample),
+        R1 = lambda wc: manifest.get_fastq_path(True, wc.sample),
         R2 = lambda wc: manifest.get_fastq_path(False, wc.sample)
     output:
-        qc_R1="../results/fastqc/fastqc_init/{sample}_R1_fastqc.html",
-        qc_R2="../results/fastqc/fastqc_init/{sample}_R2_fastqc.html"
+        fp1         = "../tempdir/fastp/{sample}/{sample}_R1_fastp.fq.gz",
+        fp2         = "../tempdir/fastp/{sample}/{sample}_R2_fastp.fq.gz",
+        html_report = "../tempdir/fastp/report/{sample}_fastp.html",
+        json_report = "../tempdir/fastp/report/{sample}_fastp.json"
     threads:
-        12
-    params:
-        outdir = "../results/fastqc/fastqc_init"
-    conda:
-        "envs/fastqc.yaml"
-    shell:
-        """
-        fastqc \
-            {input.R1} {input.R2} \
-            -f fastq \
-            -t {threads} \
-            -o {params.outdir}
-        """
-
-rule cutadapt:
-    input:
-        R1 = rules.fastqc_init.input.R1,
-        R2 = rules.fastqc_init.input.R2
-    output:
-        cutadapt1 = "../results/cutadapt/{sample}_R1_cutadapt.fastq.gz",
-        cutadapt2 = "../results/cutadapt/{sample}_R2_cutadapt.fastq.gz"
-    params:
-        adapters = "../../data/Adapters-PE_NextSeq.fa"
-    log:
-        "../logs/cutadapt/{sample}.log"
-    conda:
-        "envs/cutadapt.yaml"
-    shell:
-        """
-        cutadapt \
-        -a file:{params.adapters} \
-        -A file:{params.adapters} \
-        -o {output.cutadapt1} \
-        -p {output.cutadapt2} \
-        {input.R1} {input.R2} \
-        &> {log}
-        """
-
-rule trimming:
-    """Trimming raws fastq files using Trimmomatic"""
-    input:
-        R1=rules.cutadapt.output.cutadapt1,
-        R2=rules.cutadapt.output.cutadapt2
-    output:
-        paired_R1="../results/trimming/{sample}_R1_trim_paired.fastq.gz",
-        paired_R2="../results/trimming/{sample}_R2_trim_paired.fastq.gz",
-        unpaired_R1="../results/trimming/{sample}_R1_trim_unpaired.fastq.gz",
-        unpaired_R2="../results/trimming/{sample}_R2_trim_unpaired.fastq.gz"
-    threads:
-        8
+        32
     params:
         options = [
-            "ILLUMINACLIP:../../data/Adapters-PE_NextSeq.fa:2:12:10:8:true",
-            "LEADING:30",
-            "TRAILING:30",
-            "MINLEN:20"
-            ]
-    conda:
-        "envs/trimmomatic.yaml"
-    shell:
-        """
-        trimmomatic PE \
-            -threads {threads} \
-            -phred33 \
-            {input.R1} {input.R2} \
-            {output.paired_R1} {output.unpaired_R1} \
-            {output.paired_R2} {output.unpaired_R2} \
-            {params.options}
-        """
-
-rule fastqc_post:
-    """Fastq quality control after trimming using fastqc"""
-    input:
-        R1=rules.trimming.output.paired_R1,
-        R2=rules.trimming.output.paired_R2
-    output:
-        postqc_R1="../results/fastqc/fastqc_post/{sample}_R1_trim_paired_fastqc.html",
-        postqc_R2="../results/fastqc/fastqc_post/{sample}_R2_trim_paired_fastqc.html"
-    params:
-        outdir="../results/fastqc/fastqc_post"
-    threads:
-        12
+            "--qualified_quality_phred 30",
+            "--cut_window_size 1",
+            "--cut_mean_quality 30",
+            "--cut_front",
+            "--cut_tail"
+        ]
     log:
-        "../logs/fastqc/fastqc_post/{sample}.log"
+        "../tempdir/logs/fastp/{sample}_fastp.log"
     conda:
-        "envs/fastqc.yaml"
+        "envs/fastp.yaml"
     shell:
         """
-        fastqc \
-        {input.R1} {input.R2} \
-        -f fastq \
-        -t {threads} \
-        -o {params.outdir} \
-        &> {log}
+        fastp \
+            -i {input.R1} -I {input.R2} \
+            -o {output.fp1} -O {output.fp2} \
+            -h {output.html_report} \
+            -j {output.json_report} \
+            --thread {threads} \
+            {params.options} \
+            &> {log}
         """
 
-rule qc_multiqc:
+rule fastq_report:
     input:
-        fq_init = expand("../results/fastqc/fastqc_init/{sample}_R1_fastqc.html", sample = SAMPLES),
-        fq_post = expand("../results/fastqc/fastqc_post/{sample}_R1_trim_paired_fastqc.html", sample = SAMPLES)
+        expand("../tempdir/fastp/report/{sample}_fastp.html", sample=SAMPLES)
     output:
-        report = "../results/fastqc/multiqc/qc_multiqc_report.html"
+        report = f"{OUTPUT_DIR}/report/multiqc/qc_multiqc_report.html"
     params:
-        init_dir = "../results/fastqc/fastqc_init",
-        post_dir = "../results/fastqc/fastqc_post"
+        fastp_dir  = "../tempdir/fastp/report",
+        report_dir = f"{OUTPUT_DIR}/report/multiqc"
     conda:
         "envs/multiqc.yaml"
     shell:
         """
-        multiqc {params.init_dir} {params.post_dir} --filename {output.report}
+        multiqc {params.fastp_dir} \
+            --outdir {params.report_dir} \
+            --filename qc_multiqc_report.html
         """
 
 rule star_index:
     input:
-        fasta = config["path"]["hg38_fasta"],
-        gtf = config["path"]["hg38_gtf"]
+        fasta = FASTA,
+        gtf   = GTF
     output:
-        chrNameLength = "../results/star/star_index/chrNameLength.txt"
+        chrNameLength = "../tempdir/star/star_index/chrNameLength.txt"
     threads:
         32
     params:
-        index_dir = "../results/star/star_index/"
+        index_dir = "../tempdir/star/star_index/"
     log:
-        "../logs/star/star_index/star_index.log"
+        "../tempdir/logs/star/star_index/star_index.log"
     conda:
         "envs/star.yaml"
     shell:
         """
         STAR --runMode genomeGenerate \
-        --runThreadN {threads} \
-        --genomeDir {params.index_dir} \
-        --genomeFastaFiles {input.fasta} \
-        --sjdbGTFfile {input.gtf} \
-        --sjdbOverhang 74 \
-        &> {log}
+            --runThreadN {threads} \
+            --genomeDir {params.index_dir} \
+            --genomeFastaFiles {input.fasta} \
+            --sjdbGTFfile {input.gtf} \
+            --sjdbOverhang 74 \
+            &> {log}
         """
 
 rule star:
-    """Align reads to reference genome using STAR"""
     input:
-        R1 = rules.trimming.output.paired_R1,
-        R2 = rules.trimming.output.paired_R2,
+        R1    = rules.fastp.output.fp1,
+        R2    = rules.fastp.output.fp2,
         index = rules.star_index.output
     output:
-        bam = "../results/star/star_align/{sample}/Aligned.sortedByCoord.out.bam"
+        bam = "../tempdir/star/star_align/{sample}/Aligned.sortedByCoord.out.bam"
     threads:
         32
     params:
-        outdir = "../results/star/star_align/{sample}/",
-        index_dir = "../results/star/star_index"
+        outdir    = "../tempdir/star/star_align/{sample}/",
+        index_dir = "../tempdir/star/star_index"
     log:
-        "../logs/star/star_align/{sample}.log"
+        "../tempdir/logs/star/star_align/{sample}.log"
     conda:
         "envs/star.yaml"
     shell:
         """
         STAR --runMode alignReads \
-        --genomeDir {params.index_dir} \
-        --readFilesIn {input.R1} {input.R2} \
-        --runThreadN {threads} \
-        --readFilesCommand zcat \
-        --outFilterType BySJout \
-        --outStd Log \
-        --outSAMunmapped None \
-        --outSAMtype BAM SortedByCoordinate \
-        --outFileNamePrefix {params.outdir} \
-        --outFilterScoreMinOverLread 0.3 \
-        --outFilterMatchNminOverLread 0.3 \
-        --outFilterMultimapNmax 100 \
-        --winAnchorMultimapNmax 100 \
-        --alignEndsProtrude 5 ConcordantPair \
-        &> {log}
+            --genomeDir {params.index_dir} \
+            --readFilesIn {input.R1} {input.R2} \
+            --runThreadN {threads} \
+            --readFilesCommand zcat \
+            --outFilterType BySJout \
+            --outStd Log \
+            --outSAMunmapped None \
+            --outSAMtype BAM SortedByCoordinate \
+            --outFileNamePrefix {params.outdir} \
+            --outFilterScoreMinOverLread 0.3 \
+            --outFilterMatchNminOverLread 0.3 \
+            --outFilterMultimapNmax 100 \
+            --winAnchorMultimapNmax 100 \
+            --alignEndsProtrude 5 ConcordantPair \
+            &> {log}
         """
 
 rule find_star_log:
     input:
-        log_path = expand("../results/star/star_align/{sample}/Aligned.sortedByCoord.out.bam", sample=SAMPLES)
+        expand("../tempdir/star/star_align/{sample}/Aligned.sortedByCoord.out.bam", sample=SAMPLES)
     params:
-        path = "../results/star/star_align/"
+        path = "../tempdir/star/star_align/"
     output:
-        file = "../results/star/star_report/path_log_star_align.txt"
+        file = "../tempdir/star/star_report/path_log_star_align.txt"
     shell:
         """
         find {params.path} -type f > {output.file}
@@ -228,77 +183,80 @@ rule star_multiqc:
     input:
         star_in = rules.find_star_log.output.file
     output:
-        report = "../results/star/star_report/star_multiqc_report.html"
+        report = f"{OUTPUT_DIR}/report/star/star_multiqc_report.html"
+    params:
+        report_dir = f"{OUTPUT_DIR}/report/star"
     conda:
         "envs/multiqc.yaml"
     shell:
         """
-        multiqc --file-list {input.star_in} --filename {output.report}
+        multiqc --file-list {input.star_in} \
+            --outdir {params.report_dir} \
+            --filename star_multiqc_report.html
         """
 
 rule coco_ca:
     input:
-        gtf = config["path"]["hg38_gtf"]
+    	check = rules.downloads_coco.output.check,
+        gtf = GTF
     output:
-        gtf_corrected = "../../data/references/Homo_Sapiens_GRCh38_newsno.115_v2025.correct_annotation.gtf"
+        gtf_corrected = f"{GTF_PREFIX}.correct_annotation.gtf"
     log:
-        "../logs/coco_ca/coco_annotation.log"
+        "../tempdir/logs/coco_ca/coco_annotation.log"
     params:
-        coco_folder = config["path"]["coco_tool"]
+        coco_folder = rules.downloads_coco.output.coco_folder
     conda:
         "envs/coco.yaml"
     shell:
         """
         export PATH={params.coco_folder}/bin:$PATH
         coco ca {input.gtf} &> {log}
-	"""
+        """
 
 rule coco_cc:
     input:
         gtf = rules.coco_ca.output.gtf_corrected,
         bam = rules.star.output.bam
     output:
-        tab = "../results/coco/{sample}.tsv"
+        tab = f"{OUTPUT_DIR}/coco/{{sample}}.tsv"
     log:
-        "../logs/coco/{sample}.log"
+        "../tempdir/logs/coco/{sample}.log"
     threads:
         32
     params:
-        coco_folder = config["path"]["coco_tool"]
+        coco_folder = rules.downloads_coco.output.coco_folder
     conda:
         "envs/coco.yaml"
     shell:
         """
         export PATH={params.coco_folder}/bin:$PATH
         coco cc \
-        --strand 1 \
-        --thread {threads} \
-        --paired \
-        {input.gtf} {input.bam} \
-        {output.tab} \
-        &> {log}
+            --strand 1 \
+            --thread {threads} \
+            --paired \
+            {input.gtf} {input.bam} \
+            {output.tab} \
+            &> {log}
         """
 
 rule cocoCount_merge:
     input:
-       cc = expand("../results/coco/{sample}.tsv", sample = SAMPLES)
+        cc = expand(f"{OUTPUT_DIR}/coco/{{sample}}.tsv", sample=SAMPLES)
     output:
-        tab_tpm = "../results/coco_merge/samples_merged_coco_tpm.tsv",
-        tab_count = "../results/coco_merge/samples_merged_coco_count.tsv"
+        tab_tpm   = f"{OUTPUT_DIR}/coco_merge/samples_merged_coco_tpm.tsv",
+        tab_count = f"{OUTPUT_DIR}/coco_merge/samples_merged_coco_count.tsv"
     params:
-        pathdir = "../results/coco"
+        pathdir = f"{OUTPUT_DIR}/coco"
     conda:
         "envs/python.yaml"
     shell:
         """
         python3 ./scripts/cocoCount_merged.py \
-           -f tpm \
-           -i {params.pathdir} \
-           -o {output.tab_tpm}
-
+            -f tpm \
+            -i {params.pathdir} \
+            -o {output.tab_tpm}
         python3 ./scripts/cocoCount_merged.py \
-           -f count \
-           -i {params.pathdir} \
-           -o {output.tab_count}
+            -f count \
+            -i {params.pathdir} \
+            -o {output.tab_count}
         """
-

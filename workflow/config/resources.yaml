@@ -1,10 +1,9 @@
 path:
-    #manifest: "../data/manifest_all.tsv"
-    manifest: "../data/manifest_celline.tsv"
     coco_link: "https://github.com/scottgroup/coco.git"
-    coco_tool: "/home/abthiaw/scratch/snoDiscov/tools/coco"
-    pb_link: "https://github.com/Population-Transcriptomics/pairedBamToBed12.git"
-    #hg38_gtf: "/home/abthiaw/scratch/data/references/Homo_Sapiens_GRCh38.115_v2025.gtf"
-    hg38_gtf: "/home/abthiaw/scratch/data/references/Homo_Sapiens_GRCh38_newsno.115_v2025.gtf"
-    hg38_fasta: "/home/abthiaw/scratch/data/references/Homo_sapiens.GRCh38.dna.primary_assembly_V115.fa"
+
+gtf: ""
+fasta: ""
+fastq_dir: ""
+output_dir: "results"
+manifest: ""
 

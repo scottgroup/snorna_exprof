@@ -1,0 +1,7 @@
+name: git
+channels:
+    - conda-forge
+    - bioconda
+    - defaults
+dependencies:
+    - git

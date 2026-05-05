@@ -100,4 +100,5 @@ snakemake \
 	fastq_dir="$FASTQ_DIR" \
 	output_dir="$OUTPUT_DIR" \
 	manifest="$MANIFEST_FILE" \
+    --unlock \
     $DRY_RUN
