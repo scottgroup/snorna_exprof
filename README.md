@@ -1,6 +1,6 @@
 # ncRNA Expression Profiling Pipeline
 
-A Snakemake-based pipeline for ncRNA (snoRNA, tRNA, snRNA ...) expression profiling from RNA-seq data (paired-end or single-end). The pipeline performs quality control, read trimming, alignment, and quantification using CoCo.
+A Snakemake-based pipeline for ncRNA (snoRNA, tRNA, snRNA ...) expression profiling from TGIRT-seq data (paired-end). By leveraging CoCo, snorna_exprof corrects for the systematic quantification biases that affect intronic and overlapping genes biases that standard RNA-seq pipelines fail to address. The pipeline performs quality control, read trimming, alignment, and quantification using CoCo.
 
 ---
 
