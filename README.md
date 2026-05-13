@@ -50,7 +50,7 @@ All other dependencies (fastp, STAR, CoCo, MultiQC, etc.) are automatically inst
 conda create -c conda-forge -c bioconda -n snakemake snakemake=7.26.0
 conda activate snakemake
 git clone https://github.com/scottgroup/snorna_exprof.git
-cd ./workflow
+cd ./snorna_exprof/workflow
 ```
 
 ---
