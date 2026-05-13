@@ -43,7 +43,7 @@ rule run_all:
 rule downloads_coco:
     output:
         check = "../tools/coco_downloads.done",
-	coco_folder = directory("../tools/coco")
+		coco_folder = directory("../tools/coco")
     params:
         coco_link = config["path"]["coco_link"]
     conda:
@@ -51,7 +51,7 @@ rule downloads_coco:
     shell:
         """
         git clone {params.coco_link} {output.coco_folder}
-	touch {output.check}
+		touch {output.check}
         """
 
 rule fastp:
