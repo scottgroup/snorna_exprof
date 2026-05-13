@@ -76,7 +76,7 @@ cd ./workflow
 ### Example
 
 ```bash
-./run.sh \
+./run_smk.sh \
   -g /data/references/genome.gtf \
   -f /data/references/genome.fasta \
   -i /data/fastq/ \
@@ -87,7 +87,7 @@ cd ./workflow
 ### Dry-run (recommended before first execution)
 
 ```bash
-./run.sh \
+./run_smk.sh \
   -g /data/references/genome.gtf \
   -f /data/references/genome.fasta \
   -i /data/fastq/ \
