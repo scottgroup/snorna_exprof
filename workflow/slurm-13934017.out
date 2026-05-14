@@ -1,0 +1,19 @@
+Config file config/resources.yaml is extended by additional config specified via the command line.
+Building DAG of jobs...
+Using shell: /cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/bin/bash
+Provided cores: 8
+Rules claiming more threads will be scaled down.
+Select jobs to execute...
+
+[Wed May 13 23:25:57 2026]
+rule cocoCount_merge:
+    input: ../tempdir/coco/ASO_Control.tsv
+    output: ../results/coco_merge/samples_merged_coco_tpm.tsv, ../results/coco_merge/samples_merged_coco_count.tsv
+    jobid: 0
+    reason: Missing output files: ../results/coco_merge/samples_merged_coco_tpm.tsv, ../results/coco_merge/samples_merged_coco_count.tsv
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=/tmp
+
+Activating conda environment: .snakemake/conda/5e2487847e65b2a9ee7499e861307eb0_
+[Wed May 13 23:26:12 2026]
+Finished job 0.
+1 of 1 steps (100%) done

@@ -23,7 +23,6 @@ FASTQ_DIR  = config["fastq_dir"]
 OUTPUT_DIR = config["output_dir"]
 MANIFEST   = config["manifest"]
 
-
 # ===============
 # Manifest
 # ===============
@@ -36,23 +35,9 @@ SAMPLES  = manifest.get_samples()
 # ===============
 rule run_all:
     input:
-        f"{OUTPUT_DIR}/report/multiqc/qc_multiqc_report.html",
-        f"{OUTPUT_DIR}/report/star/star_multiqc_report.html",
-        f"{OUTPUT_DIR}/coco_merge/samples_merged_coco_tpm.tsv"
-
-rule downloads_coco:
-    output:
-        check = "../tools/coco_downloads.done",
-        coco_folder = directory("../tools/coco")
-    params:
-        coco_link = config["path"]["coco_link"]
-    conda:
-        "envs/git.yaml"
-    shell:
-        """
-        git clone {params.coco_link} {output.coco_folder}
-        touch {output.check}
-        """
+        os.path.join(OUTPUT_DIR, "report/multiqc/qc_multiqc_report.html"),
+        os.path.join(OUTPUT_DIR, "report/star/star_multiqc_report.html"),
+        os.path.join(OUTPUT_DIR, "coco_merge/samples_merged_coco_tpm.tsv")
 
 rule fastp:
     input:
@@ -93,10 +78,10 @@ rule fastq_report:
     input:
         expand("../tempdir/fastp/report/{sample}_fastp.html", sample=SAMPLES)
     output:
-        report = f"{OUTPUT_DIR}/report/multiqc/qc_multiqc_report.html"
+        report = os.path.join(OUTPUT_DIR, "report/multiqc/qc_multiqc_report.html")
     params:
         fastp_dir  = "../tempdir/fastp/report",
-        report_dir = f"{OUTPUT_DIR}/report/multiqc"
+        report_dir = os.path.join(OUTPUT_DIR, "report/multiqc")
     conda:
         "envs/multiqc.yaml"
     shell:
@@ -183,9 +168,9 @@ rule star_multiqc:
     input:
         star_in = rules.find_star_log.output.file
     output:
-        report = f"{OUTPUT_DIR}/report/star/star_multiqc_report.html"
+        report = os.path.join(OUTPUT_DIR, "report/star/star_multiqc_report.html")
     params:
-        report_dir = f"{OUTPUT_DIR}/report/star"
+        report_dir = os.path.join(OUTPUT_DIR, "report/star")
     conda:
         "envs/multiqc.yaml"
     shell:
@@ -197,14 +182,13 @@ rule star_multiqc:
 
 rule coco_ca:
     input:
-        check = rules.downloads_coco.output.check,
         gtf = GTF
     output:
-        gtf_corrected = f"{GTF_PREFIX}.correct_annotation.gtf"
+        gtf_corrected = GTF_PREFIX+".correct_annotation.gtf"
     log:
         "../tempdir/logs/coco_ca/coco_annotation.log"
     params:
-        coco_folder = rules.downloads_coco.output.coco_folder
+        coco_folder = "../tempdir/tools/coco"
     conda:
         "envs/coco.yaml"
     shell:
@@ -218,13 +202,13 @@ rule coco_cc:
         gtf = rules.coco_ca.output.gtf_corrected,
         bam = rules.star.output.bam
     output:
-        tab = f"{OUTPUT_DIR}/coco/{{sample}}.tsv"
+        tab = "../tempdir/coco/{sample}.tsv"
     log:
         "../tempdir/logs/coco/{sample}.log"
     threads:
         32
     params:
-        coco_folder = rules.downloads_coco.output.coco_folder
+        coco_folder = rules.coco_ca.params.coco_folder
     conda:
         "envs/coco.yaml"
     shell:
@@ -241,12 +225,12 @@ rule coco_cc:
 
 rule cocoCount_merge:
     input:
-        cc = expand(f"{OUTPUT_DIR}/coco/{{sample}}.tsv", sample=SAMPLES)
+        cc = expand("../tempdir/coco/{sample}.tsv", sample=SAMPLES)
     output:
-        tab_tpm   = f"{OUTPUT_DIR}/coco_merge/samples_merged_coco_tpm.tsv",
-        tab_count = f"{OUTPUT_DIR}/coco_merge/samples_merged_coco_count.tsv"
+        tab_tpm   = os.path.join(OUTPUT_DIR, "coco_merge/samples_merged_coco_tpm.tsv"),
+        tab_count = os.path.join(OUTPUT_DIR, "coco_merge/samples_merged_coco_count.tsv")
     params:
-        pathdir = f"{OUTPUT_DIR}/coco"
+        pathdir = "../tempdir/coco"
     conda:
         "envs/python.yaml"
     shell:
